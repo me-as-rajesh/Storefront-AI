@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Rocket, Upload } from "lucide-react";
+import { Rocket, Upload, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const formSchema = z.object({
@@ -64,6 +64,14 @@ export default function CreateWebsitePage() {
         form.setValue("photoDataUri", dataUri);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleClearImage = () => {
+    setImagePreview(null);
+    form.setValue("photoDataUri", "");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
@@ -147,19 +155,26 @@ export default function CreateWebsitePage() {
                         </div>
                         <div className="flex flex-col gap-2 items-start">
                           <p className="text-sm text-muted-foreground">Upload a header image for your storefront. <br /> (e.g., your logo or a hero image)</p>
-                          <FormControl>
-                            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                          <div className="flex items-center gap-2">
+                             <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
                               <Upload className="mr-2 h-4 w-4" />
                               Upload Image
                             </Button>
+                            {imagePreview && (
+                              <Button type="button" variant="ghost" size="icon" onClick={handleClearImage} aria-label="Clear image">
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                          <FormControl>
+                            <Input
+                              type="file"
+                              className="hidden"
+                              ref={fileInputRef}
+                              onChange={handleImageChange}
+                              accept="image/png, image/jpeg"
+                            />
                           </FormControl>
-                          <Input
-                            type="file"
-                            className="hidden"
-                            ref={fileInputRef}
-                            onChange={handleImageChange}
-                            accept="image/png, image/jpeg"
-                          />
                         </div>
                     </div>
                     <FormMessage />
