@@ -213,7 +213,7 @@ export default function CreateWebsitePage() {
             description: "Your new website is ready. Redirecting you to the preview.",
         });
         
-        router.push(`/preview?id=${docRef.id}`);
+        router.push(`/sites/${docRef.id}`);
       } else {
         throw new Error("AI did not return any content.");
       }
