@@ -36,6 +36,7 @@ const mockSiteData = {
 };
 
 export default function EditWebsitePage({ params }: { params: { siteId: string } }) {
+  const { siteId } = params;
   const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -55,7 +56,7 @@ export default function EditWebsitePage({ params }: { params: { siteId: string }
         form.reset(mockSiteData);
         setDataLoaded(true);
     }
-  }, [user, loading, router, form, params.siteId]);
+  }, [user, loading, router, form, siteId]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     toast({
@@ -71,7 +72,7 @@ export default function EditWebsitePage({ params }: { params: { siteId: string }
             title: "Website Updated!",
             description: "Your changes have been saved and your site is regenerated.",
         });
-        router.push(`/sites/${params.siteId}`);
+        router.push(`/sites/${siteId}`);
     }, 2000);
   }
 
@@ -208,7 +209,7 @@ export default function EditWebsitePage({ params }: { params: { siteId: string }
                 />
 
               <div className="flex justify-end gap-4">
-                 <Button type="button" variant="outline" onClick={() => router.push(`/sites/${params.siteId}`)}>Cancel</Button>
+                 <Button type="button" variant="outline" onClick={() => router.push(`/sites/${siteId}`)}>Cancel</Button>
                  <Button type="submit" size="lg" disabled={form.formState.isSubmitting}>
                    <Save className="mr-2 h-5 w-5" />
                    {form.formState.isSubmitting ? "Saving..." : "Save & Regenerate"}
