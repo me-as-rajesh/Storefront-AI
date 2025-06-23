@@ -42,16 +42,30 @@ const prompt = ai.definePrompt({
   name: 'generateWebsiteContentPrompt',
   input: {schema: GenerateWebsiteContentInputSchema},
   output: {schema: GenerateWebsiteContentOutputSchema},
-  prompt: `You are an AI expert in generating beautiful, modern, and responsive single-page websites using HTML and CSS.
+  prompt: `You are an AI expert in generating beautiful, modern, and responsive single-page websites using HTML and CSS. Your goal is to create a visually stunning and professional storefront.
 
   Based on the provided store details, generate a complete, self-contained HTML document.
-  - The HTML must be a valid HTML5 document structure (<!DOCTYPE html>, <html>, <head>, <body>).
-  - All CSS must be included within a <style> tag inside the <head> section. Do not use external stylesheets.
-  - The design should be clean, professional, and visually appealing. Use a pleasant color palette and modern fonts.
-  - The layout must be responsive and look great on both desktop and mobile devices.
-  - Use the provided image URLs by placing them in the 'src' attribute of <img> tags.
-  - The page should include sections for: a header with the store name and tagline, an 'About' section, a 'Products' section, and a footer with contact information, store hours, and social media links.
-  - The products section should display each product with its name, price, and image in a card-like format.
+
+  **Design & Styling Guidelines:**
+  - **Structure:** Use semantic HTML5 (e.g., <header>, <main>, <section>, <footer>). The final output must be a single, complete HTML document.
+  - **CSS:** All CSS must be contained within a single <style> tag in the <head>. Do not use external stylesheets or inline styles.
+  - **Fonts:** Import and use the 'Poppins' font from Google Fonts for headings and 'Inter' for body text.
+  - **Color Palette:** Use CSS variables for a clean, modern color palette. Define a primary color, a background color, a text color, and an accent color. Create a professional and harmonious theme.
+  - **Layout:** Use CSS Flexbox and/or Grid for all layout purposes. The website must be fully responsive, with media queries for mobile (<768px) and desktop views.
+  - **Visuals:**
+      - Give elements like cards and buttons a \`border-radius\` for a softer, modern look.
+      - Use subtle \`box-shadow\` on cards and interactive elements to create depth.
+      - Images should be well-integrated, with \`object-fit: cover\` and a \`border-radius\`.
+      - Implement subtle hover effects (e.g., slight lift with \`transform: translateY(-2px)\`, color change) on buttons, links, and product cards to improve user interaction.
+
+  **Content Sections:**
+  - **Header:** A hero section with the store header image (if provided) as a background, with the store name and tagline overlaid in a clear, legible way.
+  - **About Section:** A clean section introducing the store.
+  - **Products Section:** Display products in a grid layout. Each product should be in a card with its image, name, and price.
+  - **Footer:** A well-organized footer with contact information, store hours, and social media links.
+
+  **Image Handling:**
+  - Use the provided image URLs by placing them in the 'src' attribute of <img> tags. If a product photo is not provided, use a placeholder from \`https://placehold.co/400x300.png\`.
 
   Store Details:
   - Store Name: {{{storeName}}}
