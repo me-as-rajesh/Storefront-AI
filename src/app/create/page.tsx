@@ -168,6 +168,7 @@ export default function CreateWebsitePage() {
           htmlContent: result.htmlContent,
           createdAt: new Date().toISOString(),
           ownerId: user.uid,
+          isPublic: false,
         });
 
         toast({

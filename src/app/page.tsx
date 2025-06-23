@@ -3,18 +3,40 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, Star } from "lucide-react";
+import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
-// Mock data for public websites
-const publicWebsites = [
-  { id: '1', title: 'Vintage Finds', previewUrl: 'https://placehold.co/600x400.png' },
-  { id: '2', title: 'Modern Pottery', previewUrl: 'https://placehold.co/600x400.png' },
-  { id: '3', title: 'Gourmet Bites', previewUrl: 'https://placehold.co/600x400.png' },
-  { id: '4', title: 'Handmade Jewelry', previewUrl: 'https://placehold.co/600x400.png' },
-  { id: '5', title: 'Artisan Coffee', previewUrl: 'https://placehold.co/600x400.png' },
-  { id: '6', title: 'Eco-Friendly Goods', previewUrl: 'https://placehold.co/600x400.png' },
-];
+interface PublicWebsite {
+  id: string;
+  storeName: string;
+  photoUrl?: string;
+}
 
-export default function Home() {
+// Fetches public websites from Firestore
+async function getPublicWebsites(): Promise<PublicWebsite[]> {
+  try {
+    const websitesCol = collection(db, "websites");
+    const q = query(websitesCol, where("isPublic", "==", true), limit(6));
+    const querySnapshot = await getDocs(q);
+    const websites: PublicWebsite[] = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      websites.push({
+        id: doc.id,
+        storeName: data.storeName,
+        photoUrl: data.photoUrl,
+      });
+    });
+    return websites;
+  } catch (error) {
+    console.error("Error fetching public websites:", error);
+    return []; // Return empty array on error
+  }
+}
+
+export default async function Home() {
+  const publicWebsites = await getPublicWebsites();
+
   return (
     <div className="flex flex-col items-center">
       <section className="w-full py-20 md:py-32 bg-white dark:bg-card">
@@ -49,32 +71,39 @@ export default function Home() {
           <h2 className="text-3xl font-bold text-center mb-12 font-headline">
             Featured Websites
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {publicWebsites.map((site) => (
-              <Card key={site.id} className="overflow-hidden transition-transform duration-300 hover:scale-105 hover:shadow-xl">
-                 <CardHeader className="p-0">
-                    <Image
-                      src={site.previewUrl}
-                      alt={`Preview of ${site.title}`}
-                      width={600}
-                      height={400}
-                      className="object-cover w-full h-48"
-                      data-ai-hint="website preview"
-                    />
-                 </CardHeader>
-                <CardContent className="p-6">
-                  <CardTitle className="font-headline text-xl">{site.title}</CardTitle>
-                </CardContent>
-                <CardFooter>
-                  <Link href={`/sites/${site.id}`} className="w-full">
-                    <Button variant="outline" className="w-full">
-                      Visit Site
-                    </Button>
-                  </Link>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
+          {publicWebsites.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {publicWebsites.map((site) => (
+                <Card key={site.id} className="overflow-hidden transition-transform duration-300 hover:scale-105 hover:shadow-xl">
+                   <CardHeader className="p-0">
+                      <Image
+                        src={site.photoUrl || 'https://placehold.co/600x400.png'}
+                        alt={`Preview of ${site.storeName}`}
+                        width={600}
+                        height={400}
+                        className="object-cover w-full h-48 bg-muted"
+                        data-ai-hint="website preview"
+                      />
+                   </CardHeader>
+                  <CardContent className="p-6">
+                    <CardTitle className="font-headline text-xl">{site.storeName}</CardTitle>
+                  </CardContent>
+                  <CardFooter>
+                    <Link href={`/sites/${site.id}`} className="w-full">
+                      <Button variant="outline" className="w-full">
+                        Visit Site
+                      </Button>
+                    </Link>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-10 border-2 border-dashed rounded-lg">
+              <h2 className="text-xl font-semibold">No Featured Websites Yet</h2>
+              <p className="text-muted-foreground mt-2">Check back later to see what others have created!</p>
+            </div>
+          )}
         </div>
       </section>
        <footer className="w-full py-6 bg-white dark:bg-card border-t">

@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { PlusCircle, Eye, Edit, Trash2, Globe, Lock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { collection, query, where, onSnapshot, doc, deleteDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -24,6 +24,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface Website {
   id: string;
@@ -87,6 +89,26 @@ export default function DashboardPage() {
       });
     }
   };
+
+  const handleTogglePublic = async (id: string, currentStatus: boolean) => {
+    const docRef = doc(db, "websites", id);
+    try {
+      await updateDoc(docRef, {
+        isPublic: !currentStatus,
+      });
+      toast({
+        title: "Visibility Updated",
+        description: `Your website is now ${!currentStatus ? 'public' : 'private'}.`,
+      });
+    } catch (error) {
+      console.error("Error updating visibility: ", error);
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: "Could not update website visibility.",
+      });
+    }
+  };
   
   const isLoading = authLoading || websitesLoading;
 
@@ -106,7 +128,12 @@ export default function DashboardPage() {
                         <Skeleton className="h-6 w-3/4 mb-2" />
                       </div>
                     </CardHeader>
-                    <CardContent className="flex-grow"></CardContent>
+                    <CardContent className="flex-grow p-6 pt-4">
+                       <div className="flex items-center justify-between rounded-lg border p-3">
+                         <Skeleton className="h-4 w-20" />
+                         <Skeleton className="h-6 w-11" />
+                       </div>
+                    </CardContent>
                     <CardFooter className="flex justify-end gap-2">
                         <Skeleton className="h-10 w-10" />
                         <Skeleton className="h-10 w-10" />
@@ -152,7 +179,19 @@ export default function DashboardPage() {
                 </div>
                 <CardTitle className="pt-4 font-headline text-xl">{site.storeName}</CardTitle>
               </CardHeader>
-              <CardContent className="flex-grow"></CardContent>
+              <CardContent className="flex-grow pt-4">
+                 <div className="flex items-center justify-between rounded-lg border p-3">
+                  <Label htmlFor={`public-toggle-${site.id}`} className="text-sm font-medium cursor-pointer">
+                    Public access
+                  </Label>
+                  <Switch
+                      id={`public-toggle-${site.id}`}
+                      checked={!!site.isPublic}
+                      onCheckedChange={() => handleTogglePublic(site.id, site.isPublic || false)}
+                      aria-label="Toggle public access"
+                  />
+                </div>
+              </CardContent>
               <CardFooter className="flex justify-end gap-2">
                 <Button asChild variant="outline" size="icon" aria-label="View website">
                   <Link href={`/sites/${site.id}`}>
