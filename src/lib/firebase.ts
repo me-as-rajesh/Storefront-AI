@@ -1,27 +1,23 @@
-// TODO: Add your Firebase configuration here
+import { getApp, getApps, initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
+
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDksxwqwzuc1Uetqsl2pFCRedADLTeeFII",
+  authDomain: "nearbyworkers-e2d4d.firebaseapp.com",
+  databaseURL: "https://nearbyworkers-e2d4d-default-rtdb.firebaseio.com",
+  projectId: "nearbyworkers-e2d4d",
+  storageBucket: "nearbyworkers-e2d4d.appspot.com",
+  messagingSenderId: "811279390619",
+  appId: "1:811279390619:web:ee5be9049bed390a46f33e",
+  measurementId: "G-6MNP1PH22T"
 };
 
-// This is a placeholder for Firebase services.
-// In a real application, you would initialize Firebase here.
-// Example:
-// import { initializeApp } from "firebase/app";
-// import { getAuth } from "firebase/auth";
-// import { getFirestore } from "firebase/firestore";
-// import { getStorage } from "firebase/storage";
-//
-// const app = initializeApp(firebaseConfig);
-// export const auth = getAuth(app);
-// export const db = getFirestore(app);
-// export const storage = getStorage(app);
 
-// Mock exports for UI development without a live Firebase backend
-export const auth = null;
-export const db = null;
-export const storage = null;
+// Initialize Firebase
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);
