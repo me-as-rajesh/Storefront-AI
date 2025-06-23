@@ -1,11 +1,15 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useParams, notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { notFound } from "next/navigation";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { SiteActions } from "@/components/SiteActions";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface SiteData {
   id: string;
@@ -13,36 +17,81 @@ interface SiteData {
   htmlContent: string;
 }
 
-// Fetches site data from Firestore
-async function getSiteData(siteId: string): Promise<SiteData | null> {
-  console.log(`Fetching data for site: ${siteId}`);
-  
-  try {
-    const docRef = doc(db, "websites", siteId);
-    const docSnap = await getDoc(docRef);
+export default function SitePreviewPage() {
+  const params = useParams();
+  const siteId = params.siteId as string;
+  const [site, setSite] = useState<SiteData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-    if (!docSnap.exists()) {
-      return null;
-    }
-
-    const data = docSnap.data();
-
-    return {
-      id: docSnap.id,
-      title: data.storeName || `Site ${siteId}`,
-      htmlContent: data.htmlContent,
+  useEffect(() => {
+    if (!siteId) {
+        setLoading(false);
+        setError(true);
+        return;
     };
-  } catch (error) {
-    console.error("Error fetching site data:", error);
-    return null;
-  }
-}
 
-export default async function SitePreviewPage({ params: { siteId } }: { params: { siteId: string } }) {
-  const site = await getSiteData(siteId);
+    const fetchSiteData = async () => {
+      setLoading(true);
+      setError(false);
+      try {
+        const docRef = doc(db, "websites", siteId);
+        const docSnap = await getDoc(docRef);
 
-  if (!site) {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setSite({
+            id: docSnap.id,
+            title: data.storeName || `Site ${siteId}`,
+            htmlContent: data.htmlContent,
+          });
+        } else {
+          setError(true); // Site not found
+        }
+      } catch (err) {
+        console.error("Error fetching site data:", err);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSiteData();
+  }, [siteId]);
+
+  if (error) {
     notFound();
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-col h-screen">
+        <header className="bg-background border-b shadow-sm">
+          <div className="container mx-auto p-4 flex justify-between items-center">
+            <div className="flex items-center gap-4">
+                <Skeleton className="h-9 w-44" />
+                <Skeleton className="h-7 w-48" />
+            </div>
+            <div className="flex gap-2">
+                <Skeleton className="h-10 w-32" />
+                <Skeleton className="h-10 w-24" />
+                <Skeleton className="h-10 w-20" />
+            </div>
+          </div>
+        </header>
+        <main className="flex-1 bg-muted/40 p-4">
+            <Card className="h-full w-full shadow-lg">
+                <CardContent className="p-0 h-full">
+                    <Skeleton className="w-full h-full" />
+                </CardContent>
+            </Card>
+        </main>
+      </div>
+    );
+  }
+  
+  if (!site) {
+    return notFound();
   }
 
   return (
