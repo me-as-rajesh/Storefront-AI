@@ -13,16 +13,17 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Rocket, Upload, X, PlusCircle } from "lucide-react";
+import { Rocket, Upload, X, PlusCircle, Loader } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { generateWebsiteContent } from "@/ai/flows/generate-website-content";
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
 import { collection, addDoc } from "firebase/firestore";
+import { ref, uploadString, getDownloadURL } from "firebase/storage";
 
 const productSchema = z.object({
   name: z.string().min(2, { message: "Product name must be at least 2 characters." }),
   price: z.string().min(1, { message: "Price is required." }),
-  photoDataUri: z.string().optional(),
+  photoUrl: z.string().url().optional(),
 });
 
 const formSchema = z.object({
@@ -33,14 +34,16 @@ const formSchema = z.object({
   contactInfo: z.string().min(10, { message: "Contact info must be at least 10 characters." }),
   socialLinks: z.string().optional(),
   storeHours: z.string().optional(),
-  photoDataUri: z.string().optional(),
+  photoUrl: z.string().url().optional(),
 });
 
 export default function CreateWebsitePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  const [isUploading, setIsUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingProductIndex, setUploadingProductIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -49,11 +52,11 @@ export default function CreateWebsitePage() {
       storeName: "",
       tagline: "",
       about: "",
-      products: [{ name: "", price: "", photoDataUri: "" }],
+      products: [{ name: "", price: "", photoUrl: "" }],
       contactInfo: "123 Main St, Anytown, USA | contact@example.com | 555-1234",
       socialLinks: "facebook.com/store, twitter.com/store",
       storeHours: "Mon-Fri: 9am-5pm, Sat: 10am-2pm",
-      photoDataUri: "",
+      photoUrl: "",
     },
   });
 
@@ -68,14 +71,25 @@ export default function CreateWebsitePage() {
     }
   }, [user, loading, router]);
   
-  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user) return;
     const file = event.target.files?.[0];
     if (file) {
+      setIsUploading(true);
       const reader = new FileReader();
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
         const dataUri = reader.result as string;
         setImagePreview(dataUri);
-        form.setValue("photoDataUri", dataUri);
+        try {
+          const storageRef = ref(storage, `websites/${user.uid}/header-${Date.now()}`);
+          await uploadString(storageRef, dataUri, 'data_url');
+          const downloadURL = await getDownloadURL(storageRef);
+          form.setValue("photoUrl", downloadURL);
+        } catch (error) {
+          toast({ variant: 'destructive', title: 'Image Upload Failed' });
+        } finally {
+          setIsUploading(false);
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -83,22 +97,40 @@ export default function CreateWebsitePage() {
 
   const handleClearImage = () => {
     setImagePreview(null);
-    form.setValue("photoDataUri", "");
+    form.setValue("photoUrl", "");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
-  const handleProductImageChange = (event: React.ChangeEvent<HTMLInputElement>, index: number) => {
+  const handleProductImageChange = async (event: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    if (!user) return;
     const file = event.target.files?.[0];
     if (file) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            const dataUri = reader.result as string;
-            form.setValue(`products.${index}.photoDataUri`, dataUri);
-        };
-        reader.readAsDataURL(file);
+      setUploadingProductIndex(index);
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const dataUri = reader.result as string;
+        // This gives an instant preview before upload is complete
+        form.setValue(`products.${index}.photoUrl`, dataUri);
+        try {
+          const storageRef = ref(storage, `websites/${user.uid}/product-${fields[index].id}-${Date.now()}`);
+          await uploadString(storageRef, dataUri, 'data_url');
+          const downloadURL = await getDownloadURL(storageRef);
+          form.setValue(`products.${index}.photoUrl`, downloadURL, { shouldValidate: true });
+        } catch (error) {
+          toast({ variant: 'destructive', title: 'Product Image Upload Failed' });
+          form.setValue(`products.${index}.photoUrl`, ""); // Clear on failure
+        } finally {
+          setUploadingProductIndex(null);
+        }
+      };
+      reader.readAsDataURL(file);
     }
+  };
+
+  const handleClearProductImage = (index: number) => {
+    form.setValue(`products.${index}.photoUrl`, "");
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -187,13 +219,15 @@ export default function CreateWebsitePage() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                <FormField
                 control={form.control}
-                name="photoDataUri"
+                name="photoUrl"
                 render={() => (
                   <FormItem>
                     <FormLabel>Store Header Image (Optional)</FormLabel>
                       <div className="flex items-center gap-6 p-4 border rounded-md">
                         <div className="w-48 h-32 relative bg-muted rounded-md flex items-center justify-center">
-                          {imagePreview ? (
+                          {isUploading ? (
+                             <Loader className="h-8 w-8 animate-spin text-primary" />
+                          ) : imagePreview ? (
                             <Image src={imagePreview} alt="Store preview" layout="fill" objectFit="cover" className="rounded-md" data-ai-hint="storefront header" />
                           ) : (
                             <div className="text-center text-muted-foreground text-sm p-2">
@@ -205,11 +239,11 @@ export default function CreateWebsitePage() {
                         <div className="flex flex-col gap-2 items-start">
                           <p className="text-sm text-muted-foreground">Upload a header image for your storefront. <br /> (e.g., your logo or a hero image)</p>
                           <div className="flex items-center gap-2">
-                             <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                             <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
                               <Upload className="mr-2 h-4 w-4" />
-                              Upload Image
+                              {isUploading ? 'Uploading...' : 'Upload Image'}
                             </Button>
-                            {imagePreview && (
+                            {imagePreview && !isUploading && (
                               <Button type="button" variant="ghost" size="icon" onClick={handleClearImage} aria-label="Clear image">
                                 <X className="h-4 w-4" />
                               </Button>
@@ -222,6 +256,7 @@ export default function CreateWebsitePage() {
                               ref={fileInputRef}
                               onChange={handleImageChange}
                               accept="image/png, image/jpeg"
+                              disabled={isUploading}
                             />
                           </FormControl>
                         </div>
@@ -278,7 +313,8 @@ export default function CreateWebsitePage() {
                 <FormLabel>Products or Services</FormLabel>
                 <div className="space-y-4">
                   {fields.map((field, index) => {
-                    const photoDataUri = form.watch(`products.${index}.photoDataUri`);
+                    const photoUrl = form.watch(`products.${index}.photoUrl`);
+                    const isProductUploading = uploadingProductIndex === index;
                     return (
                       <Card key={field.id} className="relative p-4 pt-6">
                         {fields.length > 1 && (
@@ -297,19 +333,21 @@ export default function CreateWebsitePage() {
                           <div className="flex flex-col sm:flex-row gap-4 items-start">
                             <FormField
                               control={form.control}
-                              name={`products.${index}.photoDataUri`}
+                              name={`products.${index}.photoUrl`}
                               render={() => (
                                 <FormItem>
                                   <FormControl>
                                     <div className="w-28 h-28 shrink-0 relative bg-muted rounded-md flex items-center justify-center">
-                                      {photoDataUri ? (
+                                      {isProductUploading ? (
+                                        <Loader className="h-6 w-6 animate-spin text-primary" />
+                                      ) : photoUrl ? (
                                         <>
-                                          <Image src={photoDataUri} alt="Product preview" layout="fill" objectFit="cover" className="rounded-md" data-ai-hint="product image" />
+                                          <Image src={photoUrl} alt="Product preview" layout="fill" objectFit="cover" className="rounded-md" data-ai-hint="product image" />
                                           <Button
                                             type="button"
                                             variant="ghost" size="icon"
                                             className="absolute -top-2 -right-2 bg-background hover:bg-muted rounded-full h-6 w-6"
-                                            onClick={() => form.setValue(`products.${index}.photoDataUri`, "")}
+                                            onClick={() => handleClearProductImage(index)}
                                           >
                                             <X className="h-4 w-4" />
                                           </Button>
@@ -326,6 +364,7 @@ export default function CreateWebsitePage() {
                                         className="hidden"
                                         accept="image/png, image/jpeg"
                                         onChange={(e) => handleProductImageChange(e, index)}
+                                        disabled={uploadingProductIndex !== null}
                                       />
                                     </div>
                                   </FormControl>
@@ -370,7 +409,7 @@ export default function CreateWebsitePage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => append({ name: "", price: "", photoDataUri: "" })}
+                  onClick={() => append({ name: "", price: "", photoUrl: "" })}
                 >
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Add Product
@@ -422,7 +461,7 @@ export default function CreateWebsitePage() {
                 />
 
               <div className="flex justify-end">
-                <Button type="submit" size="lg" disabled={form.formState.isSubmitting}>
+                <Button type="submit" size="lg" disabled={form.formState.isSubmitting || isUploading || uploadingProductIndex !== null}>
                    <Rocket className="mr-2 h-5 w-5" />
                    {form.formState.isSubmitting ? "Generating..." : "Generate Website"}
                 </Button>

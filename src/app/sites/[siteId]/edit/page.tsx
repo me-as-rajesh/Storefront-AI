@@ -13,16 +13,17 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Save, PlusCircle, Upload, X } from "lucide-react";
+import { Save, PlusCircle, Upload, X, Loader } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { generateWebsiteContent } from "@/ai/flows/generate-website-content";
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { ref, uploadString, getDownloadURL } from "firebase/storage";
 
 const productSchema = z.object({
   name: z.string().min(2, { message: "Product name must be at least 2 characters." }),
   price: z.string().min(1, { message: "Price is required." }),
-  photoDataUri: z.string().optional(),
+  photoUrl: z.string().url().optional(),
 });
 
 const formSchema = z.object({
@@ -33,7 +34,7 @@ const formSchema = z.object({
   contactInfo: z.string().min(10, { message: "Contact info must be at least 10 characters." }),
   socialLinks: z.string().optional(),
   storeHours: z.string().optional(),
-  photoDataUri: z.string().optional(),
+  photoUrl: z.string().url().optional(),
 });
 
 
@@ -44,7 +45,8 @@ export default function EditWebsitePage() {
   const router = useRouter();
   const { toast } = useToast();
   const [dataLoaded, setDataLoaded] = useState(false);
-  
+  const [uploadingProductIndex, setUploadingProductIndex] = useState<number | null>(null);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {},
@@ -81,16 +83,33 @@ export default function EditWebsitePage() {
     }
   }, [user, loading, router, form, siteId, toast]);
 
-  const handleProductImageChange = (event: React.ChangeEvent<HTMLInputElement>, index: number) => {
+  const handleProductImageChange = async (event: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    if (!user) return;
     const file = event.target.files?.[0];
     if (file) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            const dataUri = reader.result as string;
-            form.setValue(`products.${index}.photoDataUri`, dataUri);
-        };
-        reader.readAsDataURL(file);
+      setUploadingProductIndex(index);
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const dataUri = reader.result as string;
+        form.setValue(`products.${index}.photoUrl`, dataUri, { shouldDirty: true });
+        try {
+            const storageRef = ref(storage, `websites/${user.uid}/product-${fields[index].id}-${Date.now()}`);
+            await uploadString(storageRef, dataUri, 'data_url');
+            const downloadURL = await getDownloadURL(storageRef);
+            form.setValue(`products.${index}.photoUrl`, downloadURL, { shouldValidate: true, shouldDirty: true });
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Product Image Upload Failed' });
+            form.setValue(`products.${index}.photoUrl`, "");
+        } finally {
+            setUploadingProductIndex(null);
+        }
+      };
+      reader.readAsDataURL(file);
     }
+  };
+
+  const handleClearProductImage = (index: number) => {
+    form.setValue(`products.${index}.photoUrl`, "");
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -206,7 +225,8 @@ export default function EditWebsitePage() {
                 <FormLabel>Products or Services</FormLabel>
                 <div className="space-y-4">
                   {fields.map((field, index) => {
-                    const photoDataUri = form.watch(`products.${index}.photoDataUri`);
+                    const photoUrl = form.watch(`products.${index}.photoUrl`);
+                    const isProductUploading = uploadingProductIndex === index;
                     return (
                       <Card key={field.id} className="relative p-4 pt-6">
                         {fields.length > 1 && (
@@ -225,19 +245,21 @@ export default function EditWebsitePage() {
                           <div className="flex flex-col sm:flex-row gap-4 items-start">
                             <FormField
                               control={form.control}
-                              name={`products.${index}.photoDataUri`}
+                              name={`products.${index}.photoUrl`}
                               render={() => (
                                 <FormItem>
                                   <FormControl>
                                     <div className="w-28 h-28 shrink-0 relative bg-muted rounded-md flex items-center justify-center">
-                                      {photoDataUri ? (
+                                     {isProductUploading ? (
+                                        <Loader className="h-6 w-6 animate-spin text-primary" />
+                                      ) : photoUrl ? (
                                         <>
-                                          <Image src={photoDataUri} alt="Product preview" layout="fill" objectFit="cover" className="rounded-md" data-ai-hint="product image" />
+                                          <Image src={photoUrl} alt="Product preview" layout="fill" objectFit="cover" className="rounded-md" data-ai-hint="product image" />
                                           <Button
                                             type="button"
                                             variant="ghost" size="icon"
                                             className="absolute -top-2 -right-2 bg-background hover:bg-muted rounded-full h-6 w-6"
-                                            onClick={() => form.setValue(`products.${index}.photoDataUri`, "")}
+                                            onClick={() => handleClearProductImage(index)}
                                           >
                                             <X className="h-4 w-4" />
                                           </Button>
@@ -254,6 +276,7 @@ export default function EditWebsitePage() {
                                         className="hidden"
                                         accept="image/png, image/jpeg"
                                         onChange={(e) => handleProductImageChange(e, index)}
+                                        disabled={uploadingProductIndex !== null}
                                       />
                                     </div>
                                   </FormControl>
@@ -298,7 +321,7 @@ export default function EditWebsitePage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => append({ name: "", price: "", photoDataUri: "" })}
+                  onClick={() => append({ name: "", price: "" })}
                 >
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Add Product
@@ -351,7 +374,7 @@ export default function EditWebsitePage() {
 
               <div className="flex justify-end gap-4">
                  <Button type="button" variant="outline" onClick={() => router.push(`/sites/${siteId}`)}>Cancel</Button>
-                 <Button type="submit" size="lg" disabled={form.formState.isSubmitting}>
+                 <Button type="submit" size="lg" disabled={form.formState.isSubmitting || uploadingProductIndex !== null}>
                    <Save className="mr-2 h-5 w-5" />
                    {form.formState.isSubmitting ? "Saving..." : "Save & Regenerate"}
                 </Button>
