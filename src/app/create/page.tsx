@@ -4,7 +4,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -12,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Rocket } from "lucide-react";
+import { Rocket, Upload } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const formSchema = z.object({
@@ -23,12 +24,16 @@ const formSchema = z.object({
   contactInfo: z.string().min(10, { message: "Contact info must be at least 10 characters." }),
   socialLinks: z.string().optional(),
   storeHours: z.string().optional(),
+  photoDataUri: z.string().optional(),
 });
 
 export default function CreateWebsitePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -39,6 +44,7 @@ export default function CreateWebsitePage() {
       contactInfo: "123 Main St, Anytown, USA | contact@example.com | 555-1234",
       socialLinks: "facebook.com/store, twitter.com/store",
       storeHours: "Mon-Fri: 9am-5pm, Sat: 10am-2pm",
+      photoDataUri: "",
     },
   });
 
@@ -47,6 +53,19 @@ export default function CreateWebsitePage() {
       router.push("/login");
     }
   }, [user, loading, router]);
+  
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUri = reader.result as string;
+        setImagePreview(dataUri);
+        form.setValue("photoDataUri", dataUri);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     toast({
@@ -80,6 +99,13 @@ export default function CreateWebsitePage() {
                     <Skeleton className="h-4 w-3/4" />
                 </CardHeader>
                 <CardContent className="space-y-8">
+                    <div className="flex items-center gap-6 p-4 border rounded-md">
+                        <Skeleton className="w-48 h-32 rounded-md" />
+                        <div className="flex-1 space-y-2">
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-10 w-36 mt-2" />
+                        </div>
+                    </div>
                     <Skeleton className="h-10 w-full" />
                     <Skeleton className="h-24 w-full" />
                     <Skeleton className="h-10 w-full" />
@@ -102,6 +128,45 @@ export default function CreateWebsitePage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+               <FormField
+                control={form.control}
+                name="photoDataUri"
+                render={() => (
+                  <FormItem>
+                    <FormLabel>Store Header Image (Optional)</FormLabel>
+                      <div className="flex items-center gap-6 p-4 border rounded-md">
+                        <div className="w-48 h-32 relative bg-muted rounded-md flex items-center justify-center">
+                          {imagePreview ? (
+                            <Image src={imagePreview} alt="Store preview" layout="fill" objectFit="cover" className="rounded-md" data-ai-hint="storefront header" />
+                          ) : (
+                            <div className="text-center text-muted-foreground text-sm p-2">
+                              <Upload className="mx-auto h-8 w-8 mb-1" />
+                              <span>Image Preview</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-2 items-start">
+                          <p className="text-sm text-muted-foreground">Upload a header image for your storefront. <br /> (e.g., your logo or a hero image)</p>
+                          <FormControl>
+                            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                              <Upload className="mr-2 h-4 w-4" />
+                              Upload Image
+                            </Button>
+                          </FormControl>
+                          <Input
+                            type="file"
+                            className="hidden"
+                            ref={fileInputRef}
+                            onChange={handleImageChange}
+                            accept="image/png, image/jpeg"
+                          />
+                        </div>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <FormField
                   control={form.control}
