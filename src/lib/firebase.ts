@@ -7,7 +7,6 @@ import { getStorage } from "firebase/storage";
 const firebaseConfig = {
   apiKey: "AIzaSyDksxwqwzuc1Uetqsl2pFCRedADLTeeFII",
   authDomain: "nearbyworkers-e2d4d.firebaseapp.com",
-  databaseURL: "https://nearbyworkers-e2d4d-default-rtdb.firebaseio.com",
   projectId: "nearbyworkers-e2d4d",
   storageBucket: "nearbyworkers-e2d4d.appspot.com",
   messagingSenderId: "811279390619",

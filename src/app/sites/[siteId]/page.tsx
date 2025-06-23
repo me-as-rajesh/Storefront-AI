@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Download, Edit, Share2, ArrowLeft } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 
 // Mock function to get site data
 async function getSiteData(siteId: string) {
@@ -53,7 +54,7 @@ async function getSiteData(siteId: string) {
 // A client component to handle browser-specific actions like download and copy
 function SiteActions({ site }: { site: { id: string; title: string; htmlContent: string } }) {
   "use client"
-  const {toast} = require("@/hooks/use-toast");
+  const {toast} = useToast();
 
   const downloadHtml = () => {
     const blob = new Blob([site.htmlContent], { type: "text/html" });
