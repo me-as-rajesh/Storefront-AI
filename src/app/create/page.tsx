@@ -13,9 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Rocket, Upload, X, PlusCircle, Loader } from "lucide-react";
+import { Rocket, Upload, X, PlusCircle, Loader, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { generateWebsiteContent } from "@/ai/flows/generate-website-content";
+import { generateAboutText } from "@/ai/flows/generate-about-text";
 import { db, storage } from "@/lib/firebase";
 import { collection, addDoc } from "firebase/firestore";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
@@ -43,6 +44,7 @@ export default function CreateWebsitePage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
+  const [isGeneratingAbout, setIsGeneratingAbout] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingProductIndex, setUploadingProductIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -144,6 +146,41 @@ export default function CreateWebsitePage() {
     form.setValue(`products.${index}.photoUrl`, "");
   };
 
+  const handleGenerateAbout = async () => {
+    const storeName = form.getValues("storeName");
+    if (!storeName) {
+      toast({
+        variant: "destructive",
+        title: "Store Name Required",
+        description: "Please enter a store name before generating the about section.",
+      });
+      return;
+    }
+
+    setIsGeneratingAbout(true);
+    toast({ title: "Generating 'About Us' text..." });
+
+    try {
+      const tagline = form.getValues("tagline");
+      const result = await generateAboutText({ storeName, tagline });
+      if (result.aboutText) {
+        form.setValue("about", result.aboutText, { shouldValidate: true, shouldDirty: true });
+        toast({ title: "Content Generated!", description: "The 'About Us' section has been updated." });
+      } else {
+        throw new Error("AI did not return any content.");
+      }
+    } catch (error) {
+      console.error("Failed to generate about text:", error);
+      toast({
+        variant: "destructive",
+        title: "Generation Failed",
+        description: "Could not generate content. Please try again.",
+      });
+    } finally {
+      setIsGeneratingAbout(false);
+    }
+  };
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) {
       toast({
@@ -223,8 +260,8 @@ export default function CreateWebsitePage() {
     <div className="container mx-auto py-12 px-4 sm:px-6 lg:px-8 max-w-4xl">
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl font-bold font-headline">Create a New Website</CardTitle>
-          <CardDescription>Fill in the details below to generate your new storefront with AI.</CardDescription>
+          <CardTitle className="text-2xl font-bold font-headline">Let's Build Your Storefront</CardTitle>
+          <CardDescription>Provide the details below and let our AI craft a unique website for you.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -330,9 +367,25 @@ export default function CreateWebsitePage() {
                 name="about"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>About Your Store</FormLabel>
+                    <div className="flex items-center justify-between mb-2">
+                      <FormLabel>About Your Store</FormLabel>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleGenerateAbout}
+                        disabled={isGeneratingAbout || !form.watch("storeName")}
+                      >
+                        {isGeneratingAbout ? (
+                          <Loader className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="mr-2 h-4 w-4 text-accent" />
+                        )}
+                        Generate with AI
+                      </Button>
+                    </div>
                     <FormControl>
-                      <Textarea placeholder="Tell us about your store's story, mission, and what makes it special." className="min-h-[120px]" {...field} />
+                      <Textarea placeholder="Tell us about your store's story, mission, and what makes it special. Or, generate it with AI!" className="min-h-[120px]" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -510,8 +563,12 @@ export default function CreateWebsitePage() {
                 />
 
               <div className="flex justify-end">
-                <Button type="submit" size="lg" disabled={form.formState.isSubmitting || isUploading || uploadingProductIndex !== null}>
-                   <Rocket className="mr-2 h-5 w-5" />
+                <Button type="submit" size="lg" disabled={form.formState.isSubmitting || isUploading || uploadingProductIndex !== null || isGeneratingAbout}>
+                   {form.formState.isSubmitting ? (
+                     <Loader className="mr-2 h-5 w-5 animate-spin" />
+                   ) : (
+                     <Rocket className="mr-2 h-5 w-5" />
+                   )}
                    {form.formState.isSubmitting ? "Generating..." : "Generate Website"}
                 </Button>
               </div>
