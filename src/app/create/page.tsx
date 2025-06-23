@@ -19,6 +19,7 @@ import { generateWebsiteContent } from "@/ai/flows/generate-website-content";
 import { db, storage } from "@/lib/firebase";
 import { collection, addDoc } from "firebase/firestore";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const productSchema = z.object({
   name: z.string().min(2, { message: "Product name must be at least 2 characters." }),
@@ -34,7 +35,7 @@ const formSchema = z.object({
   contactInfo: z.string().min(10, { message: "Contact info must be at least 10 characters." }),
   socialLinks: z.string().optional(),
   storeHours: z.string().optional(),
-  photoUrl: z.string().url().optional(),
+  photoUrl: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
 });
 
 export default function CreateWebsitePage() {
@@ -45,6 +46,7 @@ export default function CreateWebsitePage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingProductIndex, setUploadingProductIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imageInputMethod, setImageInputMethod] = useState<'upload' | 'url'>('upload');
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -59,6 +61,16 @@ export default function CreateWebsitePage() {
       photoUrl: "",
     },
   });
+
+  const photoUrl = form.watch("photoUrl");
+  useEffect(() => {
+    if (photoUrl && (photoUrl.startsWith('http') || photoUrl.startsWith('data:image'))) {
+      setImagePreview(photoUrl);
+    } else if (!photoUrl) {
+      setImagePreview(null);
+    }
+  }, [photoUrl]);
+
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -84,9 +96,10 @@ export default function CreateWebsitePage() {
           const storageRef = ref(storage, `websites/${user.uid}/header-${Date.now()}`);
           await uploadString(storageRef, dataUri, 'data_url');
           const downloadURL = await getDownloadURL(storageRef);
-          form.setValue("photoUrl", downloadURL);
+          form.setValue("photoUrl", downloadURL, { shouldValidate: true });
         } catch (error) {
           toast({ variant: 'destructive', title: 'Image Upload Failed' });
+          form.setValue("photoUrl", "", { shouldValidate: true });
         } finally {
           setIsUploading(false);
         }
@@ -96,8 +109,7 @@ export default function CreateWebsitePage() {
   };
 
   const handleClearImage = () => {
-    setImagePreview(null);
-    form.setValue("photoUrl", "");
+    form.setValue("photoUrl", "", { shouldValidate: true });
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -111,7 +123,6 @@ export default function CreateWebsitePage() {
       const reader = new FileReader();
       reader.onloadend = async () => {
         const dataUri = reader.result as string;
-        // This gives an instant preview before upload is complete
         form.setValue(`products.${index}.photoUrl`, dataUri);
         try {
           const storageRef = ref(storage, `websites/${user.uid}/product-${fields[index].id}-${Date.now()}`);
@@ -120,7 +131,7 @@ export default function CreateWebsitePage() {
           form.setValue(`products.${index}.photoUrl`, downloadURL, { shouldValidate: true });
         } catch (error) {
           toast({ variant: 'destructive', title: 'Product Image Upload Failed' });
-          form.setValue(`products.${index}.photoUrl`, ""); // Clear on failure
+          form.setValue(`products.${index}.photoUrl`, "");
         } finally {
           setUploadingProductIndex(null);
         }
@@ -220,46 +231,64 @@ export default function CreateWebsitePage() {
                <FormField
                 control={form.control}
                 name="photoUrl"
-                render={() => (
+                render={({ field }) => (
                   <FormItem>
                     <FormLabel>Store Header Image (Optional)</FormLabel>
-                      <div className="flex items-center gap-6 p-4 border rounded-md">
-                        <div className="w-48 h-32 relative bg-muted rounded-md flex items-center justify-center">
-                          {isUploading ? (
-                             <Loader className="h-8 w-8 animate-spin text-primary" />
-                          ) : imagePreview ? (
-                            <Image src={imagePreview} alt="Store preview" layout="fill" objectFit="cover" className="rounded-md" data-ai-hint="storefront header" />
-                          ) : (
-                            <div className="text-center text-muted-foreground text-sm p-2">
-                              <Upload className="mx-auto h-8 w-8 mb-1" />
-                              <span>Image Preview</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex flex-col gap-2 items-start">
-                          <p className="text-sm text-muted-foreground">Upload a header image for your storefront. <br /> (e.g., your logo or a hero image)</p>
-                          <div className="flex items-center gap-2">
-                             <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-md items-start">
+                      <div className="md:col-span-1 w-full h-32 relative bg-muted rounded-md flex items-center justify-center">
+                        {isUploading ? (
+                          <Loader className="h-8 w-8 animate-spin text-primary" />
+                        ) : imagePreview ? (
+                          <>
+                            <Image src={imagePreview} alt="Store preview" fill className="object-cover rounded-md" data-ai-hint="storefront header" />
+                            <Button
+                              type="button"
+                              variant="ghost" size="icon"
+                              className="absolute -top-2 -right-2 bg-background hover:bg-muted rounded-full h-6 w-6 z-10"
+                              onClick={handleClearImage}
+                              aria-label="Clear image"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <div className="text-center text-muted-foreground text-sm p-2">
+                            <Upload className="mx-auto h-8 w-8 mb-1" />
+                            <span>Image Preview</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="md:col-span-2">
+                        <Tabs value={imageInputMethod} onValueChange={(value) => setImageInputMethod(value as 'upload' | 'url')} className="w-full">
+                          <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="upload">Upload File</TabsTrigger>
+                            <TabsTrigger value="url">From URL</TabsTrigger>
+                          </TabsList>
+                          <TabsContent value="upload" className="pt-4">
+                            <p className="text-sm text-muted-foreground mb-4">Select an image from your computer.</p>
+                            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
                               <Upload className="mr-2 h-4 w-4" />
                               {isUploading ? 'Uploading...' : 'Upload Image'}
                             </Button>
-                            {imagePreview && !isUploading && (
-                              <Button type="button" variant="ghost" size="icon" onClick={handleClearImage} aria-label="Clear image">
-                                <X className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                          <FormControl>
-                            <Input
-                              type="file"
-                              className="hidden"
-                              ref={fileInputRef}
-                              onChange={handleImageChange}
-                              accept="image/png, image/jpeg"
-                              disabled={isUploading}
-                            />
-                          </FormControl>
-                        </div>
+                            <FormControl>
+                              <Input
+                                type="file"
+                                className="hidden"
+                                ref={fileInputRef}
+                                onChange={handleImageChange}
+                                accept="image/png, image/jpeg"
+                                disabled={isUploading}
+                              />
+                            </FormControl>
+                          </TabsContent>
+                          <TabsContent value="url" className="pt-4 space-y-2">
+                            <p className="text-sm text-muted-foreground">Paste a public image URL.</p>
+                            <FormControl>
+                              <Input placeholder="https://example.com/image.png" {...field} value={field.value ?? ''} />
+                            </FormControl>
+                          </TabsContent>
+                        </Tabs>
+                      </div>
                     </div>
                     <FormMessage />
                   </FormItem>
@@ -342,7 +371,7 @@ export default function CreateWebsitePage() {
                                         <Loader className="h-6 w-6 animate-spin text-primary" />
                                       ) : photoUrl ? (
                                         <>
-                                          <Image src={photoUrl} alt="Product preview" layout="fill" objectFit="cover" className="rounded-md" data-ai-hint="product image" />
+                                          <Image src={photoUrl} alt="Product preview" fill className="object-cover rounded-md" data-ai-hint="product image" />
                                           <Button
                                             type="button"
                                             variant="ghost" size="icon"
