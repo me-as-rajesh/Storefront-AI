@@ -15,6 +15,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Save, PlusCircle, Upload, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { generateWebsiteContent } from "@/ai/flows/generate-website-content";
+import { db } from "@/lib/firebase";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 
 const productSchema = z.object({
   name: z.string().min(2, { message: "Product name must be at least 2 characters." }),
@@ -30,22 +33,9 @@ const formSchema = z.object({
   contactInfo: z.string().min(10, { message: "Contact info must be at least 10 characters." }),
   socialLinks: z.string().optional(),
   storeHours: z.string().optional(),
+  photoDataUri: z.string().optional(),
 });
 
-const mockSiteData = {
-    storeName: "My First Store",
-    tagline: "Your favorite online shop",
-    about: "This is a store that I created with Storefront AI. It's a great place to buy things.",
-    products: [
-      { name: "Product 1", price: "$10", photoDataUri: "https://placehold.co/112x112.png" },
-      { name: "Product 2", price: "$20", photoDataUri: "https://placehold.co/112x112.png" },
-      { name: "Product 3", price: "$15", photoDataUri: "" },
-      { name: "New Gadget", price: "$99", photoDataUri: "https://placehold.co/112x112.png" },
-    ],
-    contactInfo: "101 AI Lane, Webville | hi@myfirststore.dev | 555-5555",
-    socialLinks: "facebook.com/myfirststore, twitter.com/myfirststore",
-    storeHours: "Mon-Fri: 9am-6pm, Sat: 10am-4pm",
-};
 
 export default function EditWebsitePage() {
   const params = useParams();
@@ -69,12 +59,27 @@ export default function EditWebsitePage() {
     if (!loading && !user) {
       router.push("/login");
     }
-    if (user) {
-        // In a real app, fetch data from Firestore here
-        form.reset(mockSiteData);
-        setDataLoaded(true);
+    if (user && siteId) {
+        const fetchSiteData = async () => {
+            const docRef = doc(db, "websites", siteId);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.ownerId === user.uid) {
+                    form.reset(data);
+                    setDataLoaded(true);
+                } else {
+                    toast({ variant: "destructive", title: "Unauthorized", description: "You don't have permission to edit this site." });
+                    router.push("/dashboard");
+                }
+            } else {
+                toast({ variant: "destructive", title: "Not Found", description: "This website does not exist." });
+                router.push("/dashboard");
+            }
+        };
+        fetchSiteData();
     }
-  }, [user, loading, router, form, siteId]);
+  }, [user, loading, router, form, siteId, toast]);
 
   const handleProductImageChange = (event: React.ChangeEvent<HTMLInputElement>, index: number) => {
     const file = event.target.files?.[0];
@@ -91,19 +96,35 @@ export default function EditWebsitePage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     toast({
       title: "Updating your website...",
-      description: "Please wait while our AI improves your page.",
+      description: "Please wait while our AI regenerates your page.",
     });
 
-    // In a real app, call your AI flow and update Firebase
-    console.log("Updated values:", values);
-    
-    setTimeout(() => {
+    try {
+      const result = await generateWebsiteContent(values);
+
+      if (result.htmlContent) {
+        const docRef = doc(db, "websites", siteId);
+        await updateDoc(docRef, {
+            ...values,
+            htmlContent: result.htmlContent,
+        });
+
         toast({
             title: "Website Updated!",
             description: "Your changes have been saved and your site is regenerated.",
         });
         router.push(`/sites/${siteId}`);
-    }, 2000);
+      } else {
+        throw new Error("AI did not return any content.");
+      }
+    } catch (error) {
+        console.error("Failed to update website:", error);
+        toast({
+            variant: "destructive",
+            title: "Update Failed",
+            description: "Something went wrong while updating your website. Please try again.",
+        });
+    }
   }
 
   if (loading || !user || !dataLoaded) {

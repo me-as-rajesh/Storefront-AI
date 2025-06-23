@@ -15,6 +15,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Rocket, Upload, X, PlusCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { generateWebsiteContent } from "@/ai/flows/generate-website-content";
+import { db } from "@/lib/firebase";
+import { collection, addDoc } from "firebase/firestore";
 
 const productSchema = z.object({
   name: z.string().min(2, { message: "Product name must be at least 2 characters." }),
@@ -99,26 +102,49 @@ export default function CreateWebsitePage() {
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Authentication Error",
+        description: "You must be logged in to create a website.",
+      });
+      return;
+    }
+    
     toast({
       title: "Generating your website...",
-      description: "Please wait while our AI crafts your page.",
+      description: "Please wait while our AI crafts your page. This may take a moment.",
     });
 
-    // In a real app, you would call your AI flow here
-    // const result = await generateWebsiteContent(values);
-    // Then save to Firebase and redirect
-    console.log(values);
+    try {
+      const result = await generateWebsiteContent(values);
 
-    // Simulate AI generation and saving
-    setTimeout(() => {
+      if (result.htmlContent) {
+        const docRef = await addDoc(collection(db, "websites"), {
+          ...values,
+          htmlContent: result.htmlContent,
+          createdAt: new Date().toISOString(),
+          ownerId: user.uid,
+        });
+
         toast({
             title: "Website Generated!",
-            description: "Your new website is ready. Redirecting you to the editor.",
+            description: "Your new website is ready. Redirecting you to the preview.",
         });
-        // Redirect to the new site's edit page
-        const newSiteId = "new-" + Date.now();
-        router.push(`/sites/${newSiteId}/edit`);
-    }, 2000);
+        
+        router.push(`/sites/${docRef.id}`);
+      } else {
+        throw new Error("AI did not return any content.");
+      }
+
+    } catch (error) {
+      console.error("Failed to generate website:", error);
+      toast({
+        variant: "destructive",
+        title: "Generation Failed",
+        description: "Something went wrong while generating your website. Please try again.",
+      });
+    }
   }
 
   if (loading || !user) {

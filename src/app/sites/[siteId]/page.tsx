@@ -3,56 +3,43 @@ import { Button } from "@/components/ui/button";
 import { Download, Edit, Share2, ArrowLeft } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { notFound } from "next/navigation";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
-// Mock function to get site data
-async function getSiteData(siteId: string) {
+interface SiteData {
+  id: string;
+  title: string;
+  htmlContent: string;
+}
+
+// Fetches site data from Firestore
+async function getSiteData(siteId: string): Promise<SiteData | null> {
   console.log(`Fetching data for site: ${siteId}`);
-  // In a real app, fetch from Firestore and Storage
-  const mockHtmlContent = `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Mock Site: ${siteId}</title>
-        <style>
-            body { 
-                font-family: sans-serif; 
-                display: flex; 
-                justify-content: center; 
-                align-items: center; 
-                height: 100vh; 
-                margin: 0; 
-                background-color: #f0f2f5;
-                color: #333;
-            }
-            .container {
-                text-align: center;
-                padding: 50px;
-                border-radius: 10px;
-                background-color: white;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            }
-            h1 { color: #29ABE2; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>Welcome to Mock Site ${siteId}</h1>
-            <p>This is a placeholder for your generated website.</p>
-        </div>
-    </body>
-    </html>
-  `;
-  return {
-    id: siteId,
-    title: `Mock Site ${siteId}`,
-    htmlContent: mockHtmlContent,
-  };
+  
+  try {
+    const docRef = doc(db, "websites", siteId);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      return null;
+    }
+
+    const data = docSnap.data();
+
+    return {
+      id: docSnap.id,
+      title: data.storeName || `Site ${siteId}`,
+      htmlContent: data.htmlContent,
+    };
+  } catch (error) {
+    console.error("Error fetching site data:", error);
+    return null;
+  }
 }
 
 // A client component to handle browser-specific actions like download and copy
-function SiteActions({ site }: { site: { id: string; title: string; htmlContent: string } }) {
+function SiteActions({ site }: { site: SiteData }) {
   "use client"
   const {toast} = useToast();
 
@@ -97,6 +84,10 @@ function SiteActions({ site }: { site: { id: string; title: string; htmlContent:
 
 export default async function SitePreviewPage({ params }: { params: { siteId: string } }) {
   const site = await getSiteData(params.siteId);
+
+  if (!site) {
+    notFound();
+  }
 
   return (
     <div className="flex flex-col h-screen">
