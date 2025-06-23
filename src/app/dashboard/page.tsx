@@ -10,29 +10,87 @@ import { useAuth } from "@/contexts/AuthContext";
 import { PlusCircle, Eye, Edit, Trash2, Globe, Lock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { collection, query, where, onSnapshot, doc, deleteDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
-const mockWebsites = [
-  { id: '101', title: 'My First Store', previewUrl: 'https://placehold.co/600x400.png', isPublic: true },
-  { id: '102', title: 'Draft Project', previewUrl: 'https://placehold.co/600x400.png', isPublic: false },
-  { id: '103', title: 'Summer Collection', previewUrl: 'https://placehold.co/600x400.png', isPublic: true },
-];
+interface Website {
+  id: string;
+  storeName: string;
+  photoUrl?: string;
+  isPublic?: boolean;
+}
 
 export default function DashboardPage() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [websites, setWebsites] = useState(mockWebsites);
+  const { toast } = useToast();
+  const [websites, setWebsites] = useState<Website[]>([]);
+  const [websitesLoading, setWebsitesLoading] = useState(true);
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       router.push("/login");
+      return;
     }
-  }, [user, loading, router]);
 
-  const deleteWebsite = (id: string) => {
-    setWebsites(websites.filter(site => site.id !== id));
+    if (user) {
+      const q = query(collection(db, "websites"), where("ownerId", "==", user.uid));
+      const unsubscribe = onSnapshot(q, 
+        (querySnapshot) => {
+          const sitesData: Website[] = [];
+          querySnapshot.forEach((doc) => {
+            sitesData.push({ id: doc.id, ...(doc.data() as Omit<Website, 'id'>) });
+          });
+          setWebsites(sitesData);
+          setWebsitesLoading(false);
+        }, 
+        (error) => {
+          console.error("Error fetching websites: ", error);
+          toast({
+            variant: "destructive",
+            title: "Error fetching websites",
+            description: "There was a problem loading your sites. Please try again later.",
+          });
+          setWebsitesLoading(false);
+        }
+      );
+
+      return () => unsubscribe();
+    }
+  }, [user, authLoading, router, toast]);
+
+  const handleDeleteWebsite = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, "websites", id));
+      toast({
+        title: "Website Deleted",
+        description: "Your website has been successfully deleted.",
+      });
+    } catch (error) {
+      console.error("Error deleting website: ", error);
+      toast({
+        variant: "destructive",
+        title: "Deletion Failed",
+        description: "Could not delete the website. Please try again.",
+      });
+    }
   };
+  
+  const isLoading = authLoading || websitesLoading;
 
-  if (loading || !user) {
+  if (isLoading) {
     return (
       <div className="container mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-8">
@@ -42,14 +100,16 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {[...Array(3)].map((_, i) => (
                 <Card key={i}>
-                    <Skeleton className="h-48 w-full" />
                     <CardHeader>
+                      <Skeleton className="h-48 w-full rounded-md" />
+                      <div className="pt-4">
                         <Skeleton className="h-6 w-3/4 mb-2" />
-                        <Skeleton className="h-4 w-16" />
+                      </div>
                     </CardHeader>
-                    <CardFooter className="flex justify-between">
-                        <Skeleton className="h-10 w-20" />
-                        <Skeleton className="h-10 w-20" />
+                    <CardContent className="flex-grow"></CardContent>
+                    <CardFooter className="flex justify-end gap-2">
+                        <Skeleton className="h-10 w-10" />
+                        <Skeleton className="h-10 w-10" />
                         <Skeleton className="h-10 w-10" />
                     </CardFooter>
                 </Card>
@@ -78,11 +138,11 @@ export default function DashboardPage() {
               <CardHeader>
                 <div className="relative">
                   <Image
-                    src={site.previewUrl}
-                    alt={`Preview of ${site.title}`}
+                    src={site.photoUrl || 'https://placehold.co/600x400.png'}
+                    alt={`Preview of ${site.storeName}`}
                     width={600}
                     height={400}
-                    className="object-cover w-full h-48 rounded-md"
+                    className="object-cover w-full h-48 rounded-md bg-muted"
                     data-ai-hint="website preview"
                   />
                   <Badge variant={site.isPublic ? "default" : "secondary"} className="absolute top-2 right-2">
@@ -90,7 +150,7 @@ export default function DashboardPage() {
                     {site.isPublic ? "Public" : "Private"}
                   </Badge>
                 </div>
-                <CardTitle className="pt-4 font-headline text-xl">{site.title}</CardTitle>
+                <CardTitle className="pt-4 font-headline text-xl">{site.storeName}</CardTitle>
               </CardHeader>
               <CardContent className="flex-grow"></CardContent>
               <CardFooter className="flex justify-end gap-2">
@@ -104,9 +164,28 @@ export default function DashboardPage() {
                     <Edit className="h-4 w-4" />
                   </Link>
                 </Button>
-                <Button variant="destructive" size="icon" onClick={() => deleteWebsite(site.id)} aria-label="Delete website">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                 <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="icon" aria-label="Delete website">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete your
+                        website &quot;{site.storeName}&quot;.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleDeleteWebsite(site.id)}>
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </CardFooter>
             </Card>
           ))}
