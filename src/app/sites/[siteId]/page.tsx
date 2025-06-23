@@ -38,8 +38,8 @@ async function getSiteData(siteId: string): Promise<SiteData | null> {
   }
 }
 
-export default async function SitePreviewPage({ params }: { params: { siteId: string } }) {
-  const site = await getSiteData(params.siteId);
+export default async function SitePreviewPage({ params: { siteId } }: { params: { siteId: string } }) {
+  const site = await getSiteData(siteId);
 
   if (!site) {
     notFound();
