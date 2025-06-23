@@ -63,12 +63,12 @@ export default function DashboardPage() {
     <div className="container mx-auto py-12 px-4 sm:px-6 lg:px-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold font-headline">Your Websites</h1>
-        <Link href="/create">
-          <Button className="bg-accent hover:bg-accent/90">
+        <Button asChild className="bg-accent hover:bg-accent/90">
+          <Link href="/create">
             <PlusCircle className="mr-2 h-4 w-4" />
             New Website
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
 
       {websites.length > 0 ? (
@@ -94,16 +94,16 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent className="flex-grow"></CardContent>
               <CardFooter className="flex justify-end gap-2">
-                <Link href={`/sites/${site.id}`}>
-                  <Button variant="outline" size="icon" aria-label="View website">
+                <Button asChild variant="outline" size="icon" aria-label="View website">
+                  <Link href={`/sites/${site.id}`}>
                     <Eye className="h-4 w-4" />
-                  </Button>
-                </Link>
-                <Link href={`/sites/${site.id}/edit`}>
-                  <Button variant="outline" size="icon" aria-label="Edit website">
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="icon" aria-label="Edit website">
+                  <Link href={`/sites/${site.id}/edit`}>
                     <Edit className="h-4 w-4" />
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
                 <Button variant="destructive" size="icon" onClick={() => deleteWebsite(site.id)} aria-label="Delete website">
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -115,12 +115,12 @@ export default function DashboardPage() {
         <div className="text-center py-20 border-2 border-dashed rounded-lg">
             <h2 className="text-xl font-semibold">No websites yet!</h2>
             <p className="text-muted-foreground mt-2 mb-4">Click the button below to create your first one.</p>
-            <Link href="/create">
-                <Button>
+            <Button asChild>
+                <Link href="/create">
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Create a Website
-                </Button>
-            </Link>
+                </Link>
+            </Button>
         </div>
       )}
     </div>
