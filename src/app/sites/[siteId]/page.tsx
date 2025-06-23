@@ -75,27 +75,25 @@ export default function SitePreviewPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col h-screen bg-muted/40">
-        <header className="bg-background border-b shadow-sm">
-          <div className="container mx-auto p-4 flex justify-between items-center">
-            <div className="flex items-center gap-4">
-                <Skeleton className="h-9 w-44" />
-                <Skeleton className="h-7 w-48" />
+      <div className="flex flex-col h-full">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="py-4 flex flex-wrap gap-4 justify-between items-center">
+                <div className="flex items-center gap-4">
+                    <Skeleton className="h-9 w-44" />
+                    <Skeleton className="h-7 w-48" />
+                </div>
+                <div className="flex items-center gap-4">
+                   <Skeleton className="h-8 w-24" />
+                   <div className="flex gap-2">
+                      <Skeleton className="h-10 w-32" />
+                      <Skeleton className="h-10 w-24" />
+                      <Skeleton className="h-10 w-20" />
+                   </div>
+                </div>
             </div>
-            <div className="flex items-center gap-4">
-               <Skeleton className="h-8 w-24" />
-               <div className="flex gap-2">
-                  <Skeleton className="h-10 w-32" />
-                  <Skeleton className="h-10 w-24" />
-                  <Skeleton className="h-10 w-20" />
-               </div>
-            </div>
-          </div>
-        </header>
-        <main className="flex-1 flex items-center justify-center p-4">
-            <div className="w-full h-full">
-                <Skeleton className="w-full h-full rounded-lg" />
-            </div>
+        </div>
+        <main className="flex-1 flex items-center justify-center p-4 bg-muted/40">
+             <Skeleton className="w-full h-full rounded-lg" />
         </main>
       </div>
     );
@@ -106,38 +104,38 @@ export default function SitePreviewPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-muted/40">
-      <header className="bg-background border-b shadow-sm z-10">
-        <div className="container mx-auto p-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-             <Link href="/dashboard" passHref>
-                <Button variant="outline" size="sm">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Dashboard
-                </Button>
-             </Link>
-             <h1 className="text-xl font-bold font-headline hidden md:block">{site.title}</h1>
-          </div>
-          <div className="flex items-center gap-2 md:gap-4">
-             <div className="flex items-center gap-1 rounded-md bg-muted p-1">
-                <Button variant={viewport === 'desktop' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => setViewport('desktop')}>
-                    <Monitor className="h-4 w-4"/>
-                    <span className="sr-only">Desktop</span>
-                </Button>
-                <Button variant={viewport === 'tablet' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => setViewport('tablet')}>
-                    <Tablet className="h-4 w-4"/>
-                    <span className="sr-only">Tablet</span>
-                </Button>
-                 <Button variant={viewport === 'mobile' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => setViewport('mobile')}>
-                    <Smartphone className="h-4 w-4"/>
-                    <span className="sr-only">Mobile</span>
-                </Button>
-             </div>
-            <SiteActions site={site} />
-          </div>
+    <div className="flex flex-col h-full">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 border-b">
+        <div className="py-4 flex flex-wrap gap-4 justify-between items-center">
+            <div className="flex items-center gap-4">
+                <Link href="/dashboard" passHref>
+                    <Button variant="outline" size="sm">
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Back to Dashboard
+                    </Button>
+                </Link>
+                <h1 className="text-xl font-bold font-headline hidden md:block">{site.title}</h1>
+            </div>
+            <div className="flex items-center gap-2 md:gap-4">
+                <div className="flex items-center gap-1 rounded-md bg-muted p-1">
+                    <Button variant={viewport === 'desktop' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => setViewport('desktop')}>
+                        <Monitor className="h-4 w-4"/>
+                        <span className="sr-only">Desktop</span>
+                    </Button>
+                    <Button variant={viewport === 'tablet' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => setViewport('tablet')}>
+                        <Tablet className="h-4 w-4"/>
+                        <span className="sr-only">Tablet</span>
+                    </Button>
+                    <Button variant={viewport === 'mobile' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => setViewport('mobile')}>
+                        <Smartphone className="h-4 w-4"/>
+                        <span className="sr-only">Mobile</span>
+                    </Button>
+                </div>
+                <SiteActions site={site} />
+            </div>
         </div>
-      </header>
-      <main className="flex-1 flex items-center justify-center p-4 overflow-hidden">
+      </div>
+      <main className="flex-1 flex items-center justify-center p-4 bg-muted/40 overflow-hidden">
         <Card className={cn("h-full shadow-lg transition-all duration-300 ease-in-out", viewportStyles[viewport])}>
           <CardContent className="p-0 h-full">
             <iframe
