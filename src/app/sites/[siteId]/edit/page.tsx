@@ -16,16 +16,14 @@ import { useToast } from "@/hooks/use-toast";
 import { Save, PlusCircle, Upload, X, Loader } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { generateWebsiteContent } from "@/ai/flows/generate-website-content";
-import { db, storage } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { ref, uploadString, getDownloadURL } from "firebase/storage";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 
 const productSchema = z.object({
   name: z.string().min(2, { message: "Product name must be at least 2 characters." }),
   price: z.string().min(1, { message: "Price is required." }),
-  photoUrl: z.string().url().optional().or(z.literal('')),
+  photoUrl: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
 });
 
 const formSchema = z.object({
@@ -36,7 +34,7 @@ const formSchema = z.object({
   contactInfo: z.string().min(10, { message: "Contact info must be at least 10 characters." }),
   socialLinks: z.string().optional(),
   storeHours: z.string().optional(),
-  photoUrl: z.string().url().optional().or(z.literal('')),
+  photoUrl: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
   isPublic: z.boolean().optional(),
 });
 
@@ -48,12 +46,13 @@ export default function EditWebsitePage() {
   const router = useRouter();
   const { toast } = useToast();
   const [dataLoaded, setDataLoaded] = useState(false);
-  const [uploadingProductIndex, setUploadingProductIndex] = useState<number | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {},
   });
+
+  const photoUrl = form.watch("photoUrl");
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -86,31 +85,10 @@ export default function EditWebsitePage() {
     }
   }, [user, loading, router, form, siteId, toast]);
 
-  const handleProductImageChange = async (event: React.ChangeEvent<HTMLInputElement>, index: number) => {
-    if (!user) return;
-    const file = event.target.files?.[0];
-    if (file) {
-      setUploadingProductIndex(index);
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const dataUri = reader.result as string;
-        form.setValue(`products.${index}.photoUrl`, dataUri, { shouldDirty: true });
-        try {
-            const storageRef = ref(storage, `websites/${user.uid}/product-${fields[index].id}-${Date.now()}`);
-            await uploadString(storageRef, dataUri, 'data_url');
-            const downloadURL = await getDownloadURL(storageRef);
-            form.setValue(`products.${index}.photoUrl`, downloadURL, { shouldValidate: true, shouldDirty: true });
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Product Image Upload Failed' });
-            form.setValue(`products.${index}.photoUrl`, "");
-        } finally {
-            setUploadingProductIndex(null);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
+  const handleClearImage = () => {
+    form.setValue("photoUrl", "", { shouldValidate: true, shouldDirty: true });
   };
-
+  
   const handleClearProductImage = (index: number) => {
     form.setValue(`products.${index}.photoUrl`, "", { shouldDirty: true });
   };
@@ -181,6 +159,46 @@ export default function EditWebsitePage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+              <FormField
+                control={form.control}
+                name="photoUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Store Header Image URL (Optional)</FormLabel>
+                     <div className="flex gap-4 items-start border rounded-md p-4">
+                        <div className="w-48 h-32 relative bg-muted rounded-md flex-shrink-0">
+                          {photoUrl ? (
+                            <>
+                              <Image src={photoUrl} alt="Store preview" fill className="object-cover rounded-md" data-ai-hint="storefront header" />
+                              <Button
+                                type="button"
+                                variant="ghost" size="icon"
+                                className="absolute -top-2 -right-2 bg-background hover:bg-muted rounded-full h-6 w-6 z-10"
+                                onClick={handleClearImage}
+                                aria-label="Clear image"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-center text-muted-foreground text-sm p-2">
+                              <Upload className="mx-auto h-8 w-8 mb-1" />
+                              <span>Image Preview</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="w-full space-y-2">
+                            <FormControl>
+                                <Input placeholder="https://example.com/image.png" {...field} value={field.value ?? ''} />
+                            </FormControl>
+                            <p className="text-sm text-muted-foreground">Paste a public image URL.</p>
+                        </div>
+                      </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <FormField
                   control={form.control}
@@ -229,7 +247,6 @@ export default function EditWebsitePage() {
                 <div className="space-y-4">
                   {fields.map((field, index) => {
                     const productPhotoUrl = form.watch(`products.${index}.photoUrl`);
-                    const isProductUploading = uploadingProductIndex === index;
                     return (
                        <Card key={field.id} className="relative p-4 pt-6">
                         {fields.length > 1 && (
@@ -273,17 +290,15 @@ export default function EditWebsitePage() {
                                 )}
                               />
                             </div>
-                            <FormField
+                             <FormField
                                 control={form.control}
                                 name={`products.${index}.photoUrl`}
                                 render={({ field: photoField }) => (
                                     <FormItem>
-                                        <FormLabel>Product Image (Optional)</FormLabel>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start border rounded-md p-2">
-                                            <div className="md:col-span-1 w-full h-24 relative bg-muted rounded-md flex items-center justify-center">
-                                                {isProductUploading ? (
-                                                    <Loader className="h-6 w-6 animate-spin text-primary" />
-                                                ) : productPhotoUrl ? (
+                                        <FormLabel>Product Image URL (Optional)</FormLabel>
+                                        <div className="flex gap-4 items-start border rounded-md p-2">
+                                            <div className="w-24 h-24 relative bg-muted rounded-md flex-shrink-0">
+                                                {productPhotoUrl ? (
                                                     <>
                                                         <Image src={productPhotoUrl} alt="Product preview" fill className="object-cover rounded-md" data-ai-hint="product image" />
                                                         <Button
@@ -296,38 +311,17 @@ export default function EditWebsitePage() {
                                                         </Button>
                                                     </>
                                                 ) : (
-                                                    <div className="text-center text-muted-foreground text-sm p-1">
+                                                    <div className="w-full h-full flex items-center justify-center text-center text-muted-foreground text-sm p-1">
                                                         <Upload className="mx-auto h-6 w-6 mb-1" />
                                                         <span>Preview</span>
                                                     </div>
                                                 )}
                                             </div>
-                                            <div className="md:col-span-2">
-                                                <Tabs defaultValue="upload" className="w-full">
-                                                    <TabsList className="grid w-full grid-cols-2 h-9">
-                                                        <TabsTrigger value="upload">Upload</TabsTrigger>
-                                                        <TabsTrigger value="url">URL</TabsTrigger>
-                                                    </TabsList>
-                                                    <TabsContent value="upload" className="pt-2">
-                                                        <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => document.getElementById(`product-image-input-${index}`)?.click()} disabled={uploadingProductIndex !== null}>
-                                                            <Upload className="mr-2 h-4 w-4" />
-                                                            {isProductUploading ? 'Uploading...' : 'Upload Image'}
-                                                        </Button>
-                                                        <Input
-                                                            type="file"
-                                                            id={`product-image-input-${index}`}
-                                                            className="hidden"
-                                                            accept="image/png, image/jpeg"
-                                                            onChange={(e) => handleProductImageChange(e, index)}
-                                                            disabled={uploadingProductIndex !== null}
-                                                        />
-                                                    </TabsContent>
-                                                    <TabsContent value="url" className="pt-2">
-                                                        <FormControl>
-                                                            <Input placeholder="https://image.url/product.png" {...photoField} value={photoField.value ?? ''} className="h-9"/>
-                                                        </FormControl>
-                                                    </TabsContent>
-                                                </Tabs>
+                                            <div className="w-full space-y-2">
+                                                <FormControl>
+                                                    <Input placeholder="https://example.com/product.png" {...photoField} value={photoField.value ?? ''} />
+                                                </FormControl>
+                                                <p className="text-sm text-muted-foreground">Paste a public image URL.</p>
                                             </div>
                                         </div>
                                         <FormMessage />
@@ -418,7 +412,7 @@ export default function EditWebsitePage() {
 
               <div className="flex justify-end gap-4">
                  <Button type="button" variant="outline" onClick={() => router.push(`/sites/${siteId}`)}>Cancel</Button>
-                 <Button type="submit" size="lg" disabled={form.formState.isSubmitting || uploadingProductIndex !== null}>
+                 <Button type="submit" size="lg" disabled={form.formState.isSubmitting}>
                    <Save className="mr-2 h-5 w-5" />
                    {form.formState.isSubmitting ? "Saving..." : "Save & Regenerate"}
                 </Button>
