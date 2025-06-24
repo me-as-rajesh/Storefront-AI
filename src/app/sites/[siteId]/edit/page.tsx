@@ -41,7 +41,7 @@ const formSchema = z.object({
 
 export default function EditWebsitePage() {
   const params = useParams();
-  const siteId = params.siteId as string;
+  const siteId = params?.siteId as string;
   const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();

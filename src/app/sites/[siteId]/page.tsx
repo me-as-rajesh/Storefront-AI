@@ -22,7 +22,7 @@ type Viewport = "desktop" | "tablet" | "mobile";
 
 export default function SitePreviewPage() {
   const params = useParams();
-  const siteId = params.siteId as string;
+  const siteId = params?.siteId as string;
   const [site, setSite] = useState<SiteData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);

@@ -72,7 +72,7 @@ function Preview() {
         </header>
         <main className="flex-1 bg-muted/40 p-4">
           <Card className="h-full w-full shadow-lg">
-            <CardContent className="p-0 h-full">
+ <CardContent className="p-0 h-full">
               <Skeleton className="w-full h-full" />
             </CardContent>
           </Card>
@@ -115,7 +115,7 @@ function Preview() {
         </div>
       </header>
       <main className="flex-1 bg-muted/40 p-4">
-        <Card className="h-full w-full shadow-lg">
+        <Card className="layout full screen shadow-lg">
           <CardContent className="p-0 h-full">
             <iframe
               srcDoc={site.htmlContent}
