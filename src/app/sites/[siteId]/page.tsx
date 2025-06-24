@@ -92,7 +92,7 @@ export default function SitePreviewPage() {
                 </div>
             </div>
         </div>
-        <main className="flex-1 flex items-center justify-center p-4 bg-muted/40">
+        <main className="flex-1 flex items-center justify-center bg-muted/40">
              <Skeleton className="w-full h-full rounded-lg" />
         </main>
       </div>
@@ -135,7 +135,7 @@ export default function SitePreviewPage() {
             </div>
         </div>
       </div>
-      <main className="flex-1 flex items-center justify-center p-4 bg-muted/40 overflow-hidden">
+      <main className="flex-1 flex items-center justify-center bg-muted/40 overflow-hidden">
         <Card className={cn("h-full shadow-lg transition-all duration-300 ease-in-out", viewportStyles[viewport])}>
           <CardContent className="p-0 h-full">
             <iframe

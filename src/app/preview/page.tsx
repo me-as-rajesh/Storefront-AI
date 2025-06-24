@@ -70,7 +70,7 @@ function Preview() {
             </div>
           </div>
         </header>
-        <main className="flex-1 bg-muted/40 p-4">
+        <main className="flex-1 bg-muted/40">
           <Card className="h-full w-full shadow-lg">
  <CardContent className="p-0 h-full">
               <Skeleton className="w-full h-full" />
@@ -114,8 +114,8 @@ function Preview() {
           <SiteActions site={site} />
         </div>
       </header>
-      <main className="flex-1 bg-muted/40 p-4">
-        <Card className="layout full screen shadow-lg">
+      <main className="flex-1 bg-muted/40">
+        <Card className="w-full h-full shadow-lg">
           <CardContent className="p-0 h-full">
             <iframe
               srcDoc={site.htmlContent}
